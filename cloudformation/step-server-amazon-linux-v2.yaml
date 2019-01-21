@@ -108,10 +108,12 @@ Resources:
       UserData: !Base64 |
         #!/bin/bash
         yum update -y
+        amazon-linux-extras install epel -y
         yum install python36 -y
         yum install mysql mysql-devel -y
         yum install gcc -y
         yum install git -y
+        yum install collectd -y
         ln -s /usr/bin/pip-3.6 /usr/bin/pip3
       Tags:
       - Key: Name

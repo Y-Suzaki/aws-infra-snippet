@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  StepServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: 
+          - sts:AssumeRole
+      Path: /
+  StepServerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: step-server-policy
+      Roles: 
+      - !Ref StepServerRole
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Resource: "*"
+          Action:
+          - s3:*
+  StepServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref StepServerRole
+  StepServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      KeyName: !Join [ "-", [ "kaonashi", "ssh", "key", Ref: "Env" ] ]
+      # Amazon Linux 2 AMI (HVM), SSD Volume Type
+      ImageId: ami-0ad99772
+      IamInstanceProfile: !Ref StepServerInstanceProfile
+      NetworkInterfaces:
+      - AssociatePublicIpAddress: true
+        DeviceIndex: 0
+        GroupSet: 
+        - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "step", "server", "sg", "Ref":"Env"  ] ] }
+        SubnetId: { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "public", "subnet", "a", "Ref":"Env"  ] ] }
+      UserData: !Base64 |
+        #!/bin/bash
+        yum update -y
+        yum install python36 -y
+        yum install mysql mysql-devel -y
+        yum install gcc -y
+        yum install git -y
+        ln -s /usr/bin/pip-3.6 /usr/bin/pip3
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "step", "server", "Ref":"Env"  ] ]

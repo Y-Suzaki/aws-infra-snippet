@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC & subnet create
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  # VPC & Subnet
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "backend", "vpc", "Ref":"Env"  ] ]
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "backend", "public", "route", "Ref":"Env"  ] ]
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "backend", "private", "route", "Ref":"Env"  ] ]
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "backend", "internet", "gateway", "Ref":"Env"  ] ]
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  InternetGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: us-west-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "public", "subnet", "a", "Ref":"Env"  ] ]
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC 
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: us-west-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "public", "subnet", "b", "Ref":"Env"  ] ]
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+  ApplicationSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: us-west-2a
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "application", "subnet", "a", "Ref":"Env"  ] ]
+  ApplicationSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref ApplicationSubnetA
+      RouteTableId: !Ref PublicRouteTable
+  ApplicationSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: us-west-2b
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "application", "subnet", "a", "Ref":"Env"  ] ]
+  ApplicationSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref ApplicationSubnetB
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.20.0/24
+      AvailabilityZone: us-west-2a
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "private", "subnet", "a", "Ref":"Env"  ] ]
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.21.0/24
+      AvailabilityZone: us-west-2b
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "private", "subnet", "a", "Ref":"Env"  ] ]
+  PrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+  
+  # Security Group
+  StepServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable SSH(22) access via all ip address.
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        FromPort: "22"
+        ToPort: "22"
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "step", "server", "sg", "Ref":"Env"  ] ]
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Disable via all ip address.
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "application", "sg", "Ref":"Env"  ] ]
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable RDS(3306) access via step server or applicaiton.
+      SecurityGroupIngress:
+      - SourceSecurityGroupId: !Ref StepServerSecurityGroup
+        IpProtocol: tcp
+        FromPort: "3306"
+        ToPort: "3306"
+      - SourceSecurityGroupId: !Ref ApplicationSecurityGroup
+        IpProtocol: tcp
+        FromPort: "3306"
+        ToPort: "3306"
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "kaonashi", "rds", "sg", "Ref":"Env"  ] ]
+
+# 他Stackから参照するリソースは、Exportを定義しておくこと
+Outputs: 
+  VPC:
+    Value: !Ref VPC
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "backend", "vpc", "Ref":"Env"  ] ]
+  PublicSubnetA:
+    Value: !Ref PublicSubnetA
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "public", "subnet", "a", "Ref":"Env"  ] ]
+  PublicSubnetB:
+    Value: !Ref PublicSubnetB
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "public", "subnet", "b", "Ref":"Env"  ] ]
+  ApplicationSubnetA:
+    Value: !Ref ApplicationSubnetA
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "application", "subnet", "a", "Ref":"Env"  ] ]
+  ApplicationSubnetB:
+    Value: !Ref ApplicationSubnetB
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "application", "subnet", "b", "Ref":"Env"  ] ]
+  PrivateSubnetA:
+    Value: !Ref PrivateSubnetA
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "private", "subnet", "a", "Ref":"Env"  ] ]
+  PrivateSubnetB:
+    Value: !Ref PrivateSubnetB
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "private", "subnet", "b", "Ref":"Env"  ] ]
+  StepServerSecurityGroup:
+    Value: !Ref StepServerSecurityGroup
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "step", "server", "sg", "Ref":"Env"  ] ]
+  ApplicationSecurityGroup:
+    Value: !Ref ApplicationSecurityGroup
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "application", "sg", "Ref":"Env"  ] ]
+  RDSSecurityGroup:
+    Value: !Ref RDSSecurityGroup
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "rds", "sg", "Ref":"Env"  ] ]

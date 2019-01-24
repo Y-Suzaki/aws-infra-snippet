@@ -181,6 +181,7 @@ Resources:
                 - cd docker/nginx
                 - docker build -t ${IMAGE_URI} .
                 - docker push ${IMAGE_URI}
+                - cd ../..
             post_build:
               commands:
                 - printf '[{"name":"simple-app","imageUri":"%s"}]' "$IMAGE_URI" > docker-images.json

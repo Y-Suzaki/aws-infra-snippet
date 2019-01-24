@@ -113,6 +113,7 @@ Resources:
         Rules:
         - Status: Enabled
           ExpirationInDays: 2
+          NoncurrentVersionExpirationInDays: 1
       VersioningConfiguration:
         Status: Enabled
     DeletionPolicy: Delete

@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CodePipeline create
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  GitHubToken:
+    Type: String
+    NoEcho: true
+
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: pipeline-sample
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild-service
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - ecr:GetAuthorizationToken
+              - Resource: !Sub arn:aws:s3:::${S3BucketArtifact}*
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetObjectVersion
+              - Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepository}
+                Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codepipeline-service
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: !Sub arn:aws:s3:::${S3BucketArtifact}*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: !Sub arn:aws:s3:::${S3BucketSource}*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - codebuild:StartBuild
+                  - codebuild:StopBuild
+                  - codebuild:BatchGet*
+                  - codebuild:Get*
+                  - codebuild:List*
+                  - s3:GetBucketLocation
+                  - s3:ListAllMyBuckets
+                  - iam:PassRole
+  S3BucketArtifact:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join [ "-", [ "ys", "dev", "web", "codepipeline", "artifact", Ref: "Env" ] ]
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            ExpirationInDays: 2
+    DeletionPolicy: Delete
+  S3BucketSource:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join [ "-", [ "ys", "dev", "web", "codepipeline", "source", Ref: "Env" ] ]
+      LifecycleConfiguration:
+        Rules:
+        - Status: Enabled
+          ExpirationInDays: 2
+          NoncurrentVersionExpirationInDays: 1
+      VersioningConfiguration:
+        Status: Enabled
+    DeletionPolicy: Delete
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Join [ "-", [ "ys", "dev", "web", "codepipeline", Ref: "Env" ] ]
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref S3BucketArtifact
+      Stages:
+        - Name: source
+          Actions:
+            - Name: github-source-action
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              OutputArtifacts:
+                - Name: s3-source-output
+              Configuration:
+                Owner: Y-Suzaki
+                Repo: aws-infra-snippet
+                Branch: master
+                OAuthToken: !Ref GitHubToken
+              RunOrder: 1
+        - Name: build
+          Actions:
+            - Name: app-build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildAppBuild
+              InputArtifacts:
+                - Name: s3-source-output
+              OutputArtifacts:
+                - Name: app-build-output
+              RunOrder: 1
+  CodeBuildAppBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - ls -l
+                - $(aws ecr get-login --no-include-email)
+                - TAG="latest"
+                - IMAGE_URI="${REPOSITORY_URI}:${TAG}"
+            build:
+              commands:
+                - cd docker/nginx
+                - docker build -t ${IMAGE_URI} .
+                - docker push ${IMAGE_URI}
+            post_build:
+              commands:
+                - printf '[{"name":"simple-app","imageUri":"%s"}]' "$IMAGE_URI" > docker-images.json
+          artifacts:
+            files: docker-images.json
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: "aws/codebuild/docker:18.09.0"
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: REPOSITORY_URI
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}
+      Name: !Join [ "-", [ "ys", "dev", "web", "codebuild", "app", Ref: "Env" ] ]
+      ServiceRole: !Ref CodeBuildServiceRole

@@ -73,6 +73,10 @@ Resources:
 
 # 他Stackから参照するリソースは、Exportを定義しておくこと
 Outputs:
+  SecurityGroupALB:
+    Value: !Ref SecurityGroupALB
+    Export:
+      Name: !Join [ "-", [ "ys", "dev", "web", "sg", "alb", "Ref":"Env"  ] ]
   TargetGroupBlue:
     Value: !Ref TargetGroupBlue
     Export:

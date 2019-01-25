@@ -1,0 +1,84 @@
+# stack間のリソース参照を行っているため、先に「base-alb.yaml」のstackを作成しておく必要がある。
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  LaunchType:
+    Type: String
+    Default: EC2
+    AllowedValues:
+      - Fargate
+      - EC2
+Conditions:
+  EC2: !Equals [ !Ref LaunchType, "EC2" ]
+Resources:
+  ECSRole:
+    Type: AWS::IAM::Role
+    Condition: EC2
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: EC2
+    Properties:
+      Path: /
+      Roles:
+        - !Ref ECSRole
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Condition: EC2
+    Properties:
+      GroupDescription: !Sub ${AWS::StackName}-instance
+      SecurityGroupIngress:
+      - SourceSecurityGroupId: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "sg", "alb", "Ref":"Env"  ] ] }
+        IpProtocol: -1
+      VpcId: { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "backend", "vpc" , Ref: "Env" ] ] }
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join [ "-", [ "ys", "dev", "web", "cluster", "Ref":"Env"  ] ]
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Condition: EC2
+    Properties:
+      VPCZoneIdentifier:
+        - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "public", "subnet" ,"a" , Ref: "Env" ] ] }
+        - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "public", "subnet" ,"b" , Ref: "Env" ] ] }
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: 1
+      MaxSize: 1
+      DesiredCapacity: 1
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ "ys", "dev", "web", "cluster", "front", "Ref":"Env"  ] ]
+        PropagateAtLaunch: true
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Condition: EC2
+    Properties:
+      ImageId: ami-0b2cc421c0d3015b4
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroups:
+        - !Ref SecurityGroup
+      UserData:
+        "Fn::Base64": !Sub |
+          #!/bin/bash
+          echo ECS_CLUSTER=${ECSCluster} > /etc/ecs/ecs.config
+          yum install -y https://amazon-ssm-${AWS::Region}.s3.amazonaws.com/latest/linux_amd64/amazon-ssm-agent.rpm
+# 他Stackから参照するリソースは、Exportを定義しておくこと
+Outputs:
+  ECSCluster:
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Join [ "-", [ "ys", "dev", "web", "cluster", "Ref":"Env"  ] ]

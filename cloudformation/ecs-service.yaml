@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  LaunchType:
+    Type: String
+    Default: EC2
+    AllowedValues:
+    - Fargate
+    - EC2
+  DesiredCount:
+    Type: Number
+    Default: 1
+Conditions:
+  Fargate: !Equals [ !Ref LaunchType, "Fargate" ]
+  EC2: !Equals [ !Ref LaunchType, "EC2" ]
+
+Resources:
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: front-app
+      RequiresCompatibilities:
+      - !If [ Fargate, "FARGATE", "EC2" ]
+      Memory: 512
+      Cpu: 256
+      NetworkMode: !If [ Fargate, "awsvpc", "bridge" ]
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      ContainerDefinitions:
+      - Name: nginx
+        Image: 838023436798.dkr.ecr.us-west-2.amazonaws.com/nginx:latest
+        Essential: true
+        Memory: 256
+        PortMappings:
+        - ContainerPort: 80
+  EC2Service:
+    Type: AWS::ECS::Service
+    Condition: EC2
+    Properties:
+      Cluster: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "cluster", "Ref":"Env"  ] ] }
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      LaunchType: EC2
+      LoadBalancers:
+      - ContainerName: nginx
+        ContainerPort: 80
+        TargetGroupArn: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "target", "blue", "Ref":"Env"  ] ] }
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Condition: Fargate
+    Properties:
+      GroupDescription: !Sub ${AWS::StackName}-ecs-service
+      SecurityGroupIngress:
+      - SourceSecurityGroupId: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "sg", "alb", "Ref":"Env"  ] ] }
+        IpProtocol: -1
+      VpcId: { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "backend", "vpc" , Ref: "Env" ] ] }
+  FargateService:
+    Type: AWS::ECS::Service
+    Condition: Fargate
+    Properties:
+      Cluster: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "cluster", "Ref":"Env"  ] ] }
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - !Ref SecurityGroup
+          Subnets:
+          - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "public", "subnet" ,"a" , Ref: "Env" ] ] }
+          - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "public", "subnet" ,"b" , Ref: "Env" ] ] }
+      LoadBalancers:
+      - ContainerName: nginx
+        ContainerPort: 80
+        TargetGroupArn: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "target", "blue", "Ref":"Env"  ] ] }

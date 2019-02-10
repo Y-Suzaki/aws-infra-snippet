@@ -29,6 +29,18 @@ Resources:
           Resource: "*"
           Action:
           - s3:*
+  StepServerContainerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: step-server-container-policy
+      Roles:
+      - !Ref StepServerRole
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Resource: "*"
+          Action:
+          - ecr:*
   StepServerEC2ReadOnlyPolicy:
     Type: AWS::IAM::Policy
     Properties:

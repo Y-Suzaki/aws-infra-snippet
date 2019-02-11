@@ -85,3 +85,11 @@ Outputs:
     Value: !Ref LoadBalancer
     Export:
       Name: !Join [ "-", [ "ys", "dev", "web", "alb", "Ref":"Env"  ] ]
+  LoadBalancerName:
+    Value: !GetAtt LoadBalancer.LoadBalancerName
+    Export:
+      Name: !Join [ "-", [ "ys", "dev", "web", "alb", "name", "Ref":"Env"  ] ]
+  LoadBalancerFullName:
+    Value: !GetAtt LoadBalancer.LoadBalancerFullName
+    Export:
+      Name: !Join [ "-", [ "ys", "dev", "web", "alb", "full", "name", "Ref":"Env"  ] ]

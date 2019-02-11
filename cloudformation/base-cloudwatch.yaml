@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Join [ "-", [ "ys", "dev", "web" ,"sns" , Ref: "Env" ] ]
+  LatencyPercentail:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: 1
+      Threshold: 1.0
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SNSTopic
+      Dimensions:
+        - Name: LoadBalancer
+          Value: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "alb", "full", "name", "Ref":"Env"  ] ] }
+      ExtendedStatistic: p99.5
+      MetricName: TargetResponseTime
+      Namespace: AWS/ApplicationELB
+      Period: 60
+      Unit: Seconds
+  OperatingRatio:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: 1
+      Threshold: 99
+      ComparisonOperator: LessThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SNSTopic
+      Metrics:
+        - Id: "e1"
+          Label: OperatingRate
+          ReturnData: true
+          Expression: (m2 - m1) / m2 * 100
+        - Id: m1
+          Label: HTTPCode_ELB_5XX_Count
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "alb", "full", "name", "Ref":"Env"  ] ] }
+              MetricName: HTTPCode_ELB_5XX_Count
+              Namespace: AWS/ApplicationELB
+            Period: 60
+            Stat: Sum
+            Unit: Count
+        - Id: m2
+          Label: RequestCount
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Dimensions:
+                - Name: LoadBalancer
+                  Value: { "Fn::ImportValue": !Join [ "-", [ "ys", "dev", "web", "alb", "full", "name", "Ref":"Env"  ] ] }
+              MetricName: RequestCount
+              Namespace: AWS/ApplicationELB
+            Period: 60
+            Stat: Sum
+            Unit: Count

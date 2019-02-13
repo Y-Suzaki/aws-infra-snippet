@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Dashboard for XXXXXX
+Parameters:
+    ApiName:
+        Description: ApiGateway
+        Type: String
+        Default: PetStore
+    Stage:
+        Description: ApiGateway Stage
+        Type: String
+        Default: dev
+
+Resources:
+    DashboardSideBySide:
+        Type: AWS::CloudWatch::Dashboard
+        Properties:
+            DashboardName: !Sub '${AWS::StackName}'
+            DashboardBody: !Sub |
+                {
+                    "widgets": [
+                        {
+                            "type": "text",
+                            "x": 0,
+                            "y": 0,
+                            "width": 24,
+                            "height": 1,
+                            "properties": {
+                                "markdown": "\n# サービスの正常性\n"
+                            }
+                        },
+                        {
+                            "type": "metric",
+                            "x": 0,
+                            "y": 1,
+                            "width": 9,
+                            "height": 6,
+                            "properties": {
+                                "metrics": [
+                                    [ { "expression": "(m1 -m2) / m1 * 100", "label": "Operation Rate", "id": "e1" } ],
+                                    [ "AWS/ApiGateway", "Count", "ApiName", "PetStore", "Stage", "dev", { "stat": "Sum", "id": "m1", "visible": false } ],
+                                    [ ".", "5XXError", ".", ".", ".", ".", { "stat": "Sum", "id": "m2", "visible": false } ]
+                                ],
+                                "view": "timeSeries",
+                                "stacked": false,
+                                "region": "us-west-2",
+                                "period": 300,
+                                "yAxis": {
+                                    "left": {
+                                        "min": 0,
+                                        "max": 100
+                                    }
+                                },
+                                "title": "稼働率（%）"
+                            }
+                        },
+                        {
+                            "type": "metric",
+                            "x": 0,
+                            "y": 7,
+                            "width": 9,
+                            "height": 6,
+                            "properties": {
+                                "metrics": [
+                                    [ "AWS/ApiGateway", "Count", "ApiName", "PetStore", "Stage", "dev", { "stat": "Sum" } ],
+                                    [ ".", "5XXError", ".", ".", ".", ".", { "yAxis": "right", "stat": "Sum" } ],
+                                    [ ".", "4XXError", ".", ".", ".", ".", { "yAxis": "right", "stat": "Sum" } ]
+                                ],
+                                "view": "timeSeries",
+                                "stacked": false,
+                                "region": "us-west-2",
+                                "title": "総リクエスト / 5XXError / 4XXError"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "x": 0,
+                            "y": 14,
+                            "width": 9,
+                            "height": 1,
+                            "properties": {
+                                "markdown": "\n### Application（Fargate）\n"
+                            }
+                        },
+                        {
+                            "type": "metric",
+                            "x": 9,
+                            "y": 1,
+                            "width": 9,
+                            "height": 6,
+                            "properties": {
+                                "title": "レスポンチ遅延",
+                                "annotations": {
+                                    "alarms": [
+                                        "arn:aws:cloudwatch:us-west-2:838023436798:alarm:api-latency"
+                                    ]
+                                },
+                                "view": "timeSeries",
+                                "stacked": false
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "x": 0,
+                            "y": 13,
+                            "width": 21,
+                            "height": 1,
+                            "properties": {
+                                "markdown": "\n# AWSリソース\n"
+                            }
+                        },
+                        {
+                            "type": "metric",
+                            "x": 0,
+                            "y": 15,
+                            "width": 9,
+                            "height": 6,
+                            "properties": {
+                                "metrics": [
+                                    [ "AWS/ECS", "CPUUtilization", "ServiceName", "ys-dev-web-service-FargateService-1863DNTRKA9EQ", "ClusterName", "ys-dev-web-cluster-dev", { "period": 60 } ],
+                                    [ ".", "MemoryUtilization", ".", ".", ".", ".", { "period": 60 } ]
+                                ],
+                                "view": "timeSeries",
+                                "stacked": false,
+                                "region": "us-west-2",
+                                "yAxis": {
+                                    "left": {
+                                        "max": 100
+                                    }
+                                },
+                                "title": "CPU / MemoryUtilization（Container）"
+                            }
+                        }
+                    ]
+                }

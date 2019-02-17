@@ -181,6 +181,18 @@ Outputs:
     Value: !Ref VPC
     Export: 
       Name: !Join [ "-", [ "kaonashi", "backend", "vpc", "Ref":"Env"  ] ]
+  VPCCIDR:
+    Value: !GetAtt VPC.CidrBlock
+    Export: 
+      Name: !Join [ "-", [ "kaonashi", "backend", "vpc", "cidr", "Ref":"Env"  ] ]
+  PublicRouteTable:
+    Value: !Ref PublicRouteTable
+    Export:
+      Name: !Join [ "-", [ "kaonashi", "public", "route", "Ref":"Env"  ] ]
+  PrivateRouteTable:
+    Value: !Ref PrivateRouteTable
+    Export:
+      Name: !Join [ "-", [ "kaonashi", "private", "route", "Ref":"Env"  ] ]
   PublicSubnetA:
     Value: !Ref PublicSubnetA
     Export: 

@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC endpoint create.
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  DynamodbEndpoint:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      RouteTableIds:
+        - Fn::ImportValue: !Sub "kaonashi-public-route-${Env}"
+        - Fn::ImportValue: !Sub "kaonashi-private-route-${Env}"
+      ServiceName:
+        !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+      VpcEndpointType: Gateway
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+
+  S3Endpoint:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      RouteTableIds:
+        - Fn::ImportValue: !Sub "kaonashi-public-route-${Env}"
+        - Fn::ImportValue: !Sub "kaonashi-private-route-${Env}"
+      ServiceName:
+        !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+  
+  # VPC内からのアクセスは全て許可するようにCIDRを設定しておく
+  # このSecurity GroupをEndPointに紐づける
+  EndPointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+      GroupDescription: Enable https(443) access via the specified VPC CIDR.
+      SecurityGroupIngress:
+      - CidrIp:  
+          Fn::ImportValue: !Sub "kaonashi-backend-vpc-cidr-${Env}"
+        IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+      Tags:
+      - Key: Name
+        Value: !Sub "ys-dev-web-endpoint-sg-${Env}"
+
+  LogsEndPoint:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      ServiceName:
+        !Sub "com.amazonaws.${AWS::Region}.logs"
+      SubnetIds:
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-a-${Env}"
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-b-${Env}"
+      SecurityGroupIds:
+        - !Ref EndPointSecurityGroup
+      VpcEndpointType: Interface
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+
+  # SSMには3つのEndPointが必要
+  SSMEndPoint:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      ServiceName:
+        !Sub "com.amazonaws.${AWS::Region}.ssm"
+      SubnetIds:
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-a-${Env}"
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-b-${Env}"
+      SecurityGroupIds:
+        - !Ref EndPointSecurityGroup
+      VpcEndpointType: Interface
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+
+  
+  EC2MessagesEndPoint:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      ServiceName:
+        !Sub "com.amazonaws.${AWS::Region}.ec2messages"
+      SubnetIds:
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-a-${Env}"
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-b-${Env}"
+      SecurityGroupIds:
+        - !Ref EndPointSecurityGroup
+      VpcEndpointType: Interface
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+
+
+  EC2EndPoint:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      ServiceName:
+        !Sub "com.amazonaws.${AWS::Region}.ec2"
+      SubnetIds:
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-a-${Env}"
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-b-${Env}"
+      SecurityGroupIds:
+        - !Ref EndPointSecurityGroup
+      VpcEndpointType: Interface
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+
+
+  # SessionManagerが必要なら以下も追加する
+  SessionManagerEndPoint:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      ServiceName:
+        !Sub "com.amazonaws.${AWS::Region}.ssmmessages"
+      SubnetIds:
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-a-${Env}"
+        - Fn::ImportValue: !Sub "kaonashi-private-subnet-b-${Env}"
+      SecurityGroupIds:
+        - !Ref EndPointSecurityGroup
+      VpcEndpointType: Interface
+      VpcId: 
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"

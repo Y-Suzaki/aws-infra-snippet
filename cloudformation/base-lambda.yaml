@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Lambda function create.
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: logs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ys-dev-web-lambda-${Env}
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: !Sub |
+          def lambda_handler(event, context):
+            return {'status': 200, 'message': 'version 555'}
+      Runtime: python3.6
+      MemorySize: 128
+      Timeout: 30
+      Description: "Lambda sample."
+      Environment:
+        Variables:
+          targeturl: https://xxxx
+      Tags:
+        - Key: Name
+          Value: !Sub lambda-sample-${Env}
+
+Outputs: 
+  LambdaFunction:
+    Value: !Ref LambdaFunction
+    Export: 
+      Name: !Sub "ys-dev-web-lambda-${Env}"

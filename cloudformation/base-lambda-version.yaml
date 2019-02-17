@@ -1,0 +1,14 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Lambda function create.
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  LambdaVersion:
+    DeletionPolicy: Retain
+    Type: AWS::Lambda::Version
+    Properties: 
+      FunctionName: 
+         Fn::ImportValue: !Sub "ys-dev-web-lambda-${Env}"

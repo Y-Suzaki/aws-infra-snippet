@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  AllowedAccountId:
+    Type: String
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub ys-dev-web-second-sam-deploy
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            ExpirationInDays: 1
+    DeletionPolicy: Delete
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument:
+        Id: CrossAccount
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AllowedAccountId}:user/admin-suzaki
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${S3Bucket}/*
+          - Sid: PublicReadForGetBucketObjectsWithRole
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AllowedAccountId}:role/step-StepServerRole-RJCNKBHF3LS4
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${S3Bucket}/*
+      Bucket: !Ref S3Bucket

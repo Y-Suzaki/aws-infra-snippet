@@ -1,0 +1,42 @@
+# 作成する順番3⃣
+# 許可する側のアカウントに定義するRole
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  AllowedAccountId:
+    Type: String
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub ys-dev-web-second-sam-deploy
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            ExpirationInDays: 1
+    DeletionPolicy: Delete
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ys-dev-web-s3-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              # 許可される側のRoleを指定する
+              AWS: !Sub arn:aws:iam::${AllowedAccountId}:role/ys-dev-web-s3-assume-role
+  Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: s3-access-policy
+      Roles:
+      - !Ref Role
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Resource: !Sub arn:aws:s3:::${S3Bucket}/*
+          Action:
+            - s3:*

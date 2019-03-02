@@ -1,0 +1,21 @@
+# 作成する順番①
+# 許可される側のアカウントに定義するRole
+# このRole自体にs3のアクセス権限はなく、Assume Roleで取得する側のRoleにある。
+# お互いのRoleを参照し合うため、最初にこのテンプレートでStackを作成する必要がある。
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+Resources:
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ys-dev-web-s3-assume-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole

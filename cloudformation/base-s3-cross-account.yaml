@@ -1,3 +1,6 @@
+# Bucket Policyで許可した場合、オブジェクトの所有権がアップロードした側のアカウントになってしまい、
+# アップロードされた側でそのままではアクセスできない等、色々不都合が生じる。
+# 問題になる場合、AssumeRoleによるクロスアカウント制御を試した方が良い。
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   Env:
@@ -33,5 +36,13 @@ Resources:
             Principal:
               AWS: !Sub arn:aws:iam::${AllowedAccountId}:role/step-StepServerRole-RJCNKBHF3LS4
             Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${S3Bucket}/*
+          - Sid: PutDeleteBucketObjectsWithRole
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AllowedAccountId}:role/step-StepServerRole-RJCNKBHF3LS4
+            Action:
+              - s3:PutObject
+              - s3:Delete*
             Resource: !Sub arn:aws:s3:::${S3Bucket}/*
       Bucket: !Ref S3Bucket

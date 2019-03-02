@@ -1,0 +1,23 @@
+# 作成する順番②
+# 許可される側のアカウントに定義するRole Policy
+# このRole自体にs3のアクセス権限はなく、Assume Roleで取得する側のRoleにある。
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  AssumeAccountId:
+    Type: String
+Resources:
+  Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: sts-access-policy
+      Roles:
+        - ys-dev-web-apigateway-assume-role
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Resource: !Sub arn:aws:iam::${AssumeAccountId}:role/ys-dev-web-apigateway-role
+          Action:
+            - sts:AssumeRole

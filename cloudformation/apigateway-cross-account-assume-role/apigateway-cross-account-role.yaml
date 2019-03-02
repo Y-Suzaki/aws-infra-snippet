@@ -1,0 +1,35 @@
+# 作成する順番3⃣
+# 許可する側のアカウントに定義するRole
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  AllowedAccountId:
+    Type: String
+  ApiGatewayId:
+    Type: String
+Resources:
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ys-dev-web-apigateway-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              # 許可される側のRoleを指定する
+              AWS: !Sub arn:aws:iam::${AllowedAccountId}:role/ys-dev-web-apigateway-assume-role
+  Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: apigateway-access-policy
+      Roles:
+      - !Ref Role
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayId}/prod/GET/*
+            Action:
+              - execute-api:*

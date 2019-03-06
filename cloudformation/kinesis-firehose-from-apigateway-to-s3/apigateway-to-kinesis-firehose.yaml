@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+Resources:
+  ApiGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: apigateway.amazonaws.com
+          Action: sts:AssumeRole
+  ApiGatewayPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: firehose_delivery_policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+            - firehose:PutRecord
+            - firehose:PutRecordBatch
+          Resource: !Sub arn:aws:firehose:${AWS::Region}:${AWS::AccountId}:deliverystream/kinesis-Kinesis-1S1IUZ8ZP2LCQ
+      Roles:
+      - !Ref ApiGatewayRole
+  Api:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub api-kinesis-upload-${Env}
+  Resource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: upload
+  ResourceMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref Api
+      ResourceId: !Ref Resource
+      AuthorizationType: "None"
+      HttpMethod: "POST"
+      Integration:
+        Type: AWS
+        Credentials: !GetAtt ApiGatewayRole.Arn
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:firehose:action/PutRecord
+        IntegrationHttpMethod: POST
+        RequestTemplates:
+          application/json: !Sub |
+            {
+              "DeliveryStreamName": "kinesis-Kinesis-1S1IUZ8ZP2LCQ",
+              "Record": {
+                "Data": "$util.base64Encode($input.json('$'))"
+              }
+            }
+        IntegrationResponses:
+          - StatusCode: 200
+      MethodResponses:
+        - StatusCode: 200

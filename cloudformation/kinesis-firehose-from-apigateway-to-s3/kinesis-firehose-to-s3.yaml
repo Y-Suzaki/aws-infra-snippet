@@ -23,6 +23,11 @@ Resources:
           IntervalInSeconds: 60
           SizeInMBs: 1
         CompressionFormat: UNCOMPRESSED
+        # カスタムPrefixでHive形式で保存するように設定
+        # year=yyyy/month=MM/day=dd
+        # TODO: CloudFormationで、UnSuppoted ErrorOutputPrefixになってしまう
+        #Prefix: firehose/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
+        #ErrorOutputPrefix: firehose-error/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
         Prefix: firehose/
         RoleARN: !GetAtt KinesisRole.Arn
   KinesisRole:

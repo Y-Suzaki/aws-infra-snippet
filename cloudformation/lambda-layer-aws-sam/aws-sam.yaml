@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: ys-dev-web-lambda-json-logger
+      Description: Lambda function logger of json format.
+      ContentUri: ./lambda-layer.zip
+      CompatibleRuntimes:
+      - python3.7
+      LicenseInfo: 'Available under the MIT-0 license.'
+      RetentionPolicy: Delete
+
+  ServerlessFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.7
+      Handler: lambda_handler.lambda_handler
+      FunctionName: !Sub ys-dev-web-lambda
+      MemorySize: 128
+      Timeout: 300
+      CodeUri: ./lambda_handler.py
+      AutoPublishAlias: release
+      Layers:
+        - !Ref SharedLayer

@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  ApiId:
+    Type: String
+    Default: i26o1hxe5h
+
+Resources:
+  DeploymentProduction:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      DeploymentCanarySettings:
+        PercentTraffic: 0.0
+        StageVariableOverrides:
+          Alias: v1.0.0
+        UseStageCache: false
+      RestApiId: !Ref ApiId
+      StageName: Production

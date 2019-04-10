@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  ApiId:
+    Type: String
+    Default: i26o1hxe5h
+
+Resources:
+  DeploymentProduction:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiId
+      StageName: Production

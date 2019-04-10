@@ -1,27 +1,25 @@
 import boto3
 import json
 
-# JSONが複数格納されているファイルを分割する
+def handler(event, context):
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    key = event['Records'][0]['s3']['object']['key']
 
-BUCKET = ''
-KEY = ''
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(bucket)
+    file_path = '/tmp/' + key
+    bucket.download_file(Key=key, Filename=file_path)
 
-s3 = boto3.resource('s3')
-bucket = s3.Bucket(BUCKET)
-obj = bucket.Object(KEY)
+    with open(file_path, 'r') as f:
+        json_str = f.read()
 
-# byte配列
-bytes = obj.get()['Body'].read()
-json_str = bytes.decode()
+    ouput_path = file_path + '_'
 
-decoder = json.JSONDecoder()
+    with open(ouput_path, 'w') as f:
+        while len(json_str) > 0:
+            record, index = json.JSONDecoder().raw_decode(json_str)
+            json_str = json_str[index:]
+            print(record)
+            f.write(record)
 
-while len(json_str) > 0:
-    record, index = decoder.raw_decode(json_str)
-    json_str = json_str[index:]
-    print('******************************')
-    print('next index: {}'.format(index))
-    print(record)
-
-
-
+    bucket.upload_file(ouput_path, Key=ouput_path)

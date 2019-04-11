@@ -12,6 +12,7 @@ Resources:
   HTTPResponseFunction:
     Type: AWS::Serverless::Function
     Properties:
+      AutoPublishAlias: Production
       CodeUri: ./src
       Handler: app.main
       FunctionName: HTTPAccess
@@ -19,7 +20,14 @@ Resources:
         Fn::GetAtt:
           - SampleLambdaRole
           - Arn
- 
+
+  HTTPResponseFunctionAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref HTTPResponseFunction
+      FunctionVersion: !Ref HTTPResponseFunction.Version
+      Name: v100
+
   HTTPResponsePermission:
     Type: "AWS::Lambda::Permission"
     Properties:

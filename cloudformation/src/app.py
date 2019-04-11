@@ -12,6 +12,6 @@ def lambda_handler(event, context):
     logger.setLevel(logging.DEBUG)
     logger.debug('debug log @@@', extra={'error_code':'0002', 'module_name':'external papa'})
     logger.info('info log @@@', extra={'error_code':'0002', 'module_name':'external papa'})
-    logger.warn('warn log @@@', extra={'error_code':'0002', 'module_name':'external papa'})
+    logger.warning('warn log @@@', extra={'error_code':'0002', 'module_name':'external papa'})
     logger.error('error log @@@', extra={'error_code':'0002', 'module_name':'external papa'})
     logger.critical('critical log @@@', extra={'error_code':'0002', 'module_name':'external papa'})

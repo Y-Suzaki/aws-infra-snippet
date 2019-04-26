@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Dashboard for XXXXXX
+
+Resources:
+    Dashboard:
+        Type: AWS::CloudWatch::Dashboard
+        Properties:
+            DashboardName: !Sub '${AWS::StackName}'
+            DashboardBody: !Sub |
+                {
+                    "widgets": [
+                        {
+                            "type": "metric",
+                            "x": 0,
+                            "y": 0,
+                            "width": 12,
+                            "height": 9,
+                            "properties": {
+                                "metrics": [
+                                    [ { "expression": "SEARCH(' {AWS/ApiGateway,ApiName} AND test-a', 'Sum', 300)", "id": "e1", "label": "a", "yAxis": "left" } ]
+                                ],
+                                "view": "timeSeries",
+                                "stacked": false,
+                                "region": "us-west-2",
+                                "period": 300,
+                                "title": "ApiNameがtest-aで始まる、全メトリクス"
+                            }
+                        },
+                        {
+                            "type": "metric",
+                            "x": 12,
+                            "y": 0,
+                            "width": 12,
+                            "height": 9,
+                            "properties": {
+                                "metrics": [
+                                    [ { "expression": "SEARCH(' {AWS/ApiGateway,ApiName} AND test AND (MetricName=Count OR MetricName=5XXError)', 'Sum', 300)", "id": "e1" } ]
+                                ],
+                                "view": "timeSeries",
+                                "stacked": false,
+                                "region": "us-west-2",
+                                "title": "ApiNameがtestで始まる、Countと5XXError"
+                            }
+                        }
+                    ]
+                }

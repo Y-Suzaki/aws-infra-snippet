@@ -10,4 +10,4 @@ AWS client VPN endpoint can connect in VPC on AWS cloud without VPN software ser
 ### Set up For AWS VPC
 * [AWS Client VPNを試してみる](https://qiita.com/atsumjp/items/837d8ea5763bb985ff8d)
 ## Network structure
-![picture](vpn-client.png)
+![picture](https://github.com/Y-Suzaki/aws-infra-snippet/blob/master/cloudformation/open-vpn-client/vpn-client.PNG)

@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless application.
+
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: lambda_logs_policy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: logs:CreateLogGroup
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource:
+                - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:*
+
+  DeployStackLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      AutoPublishAlias: latest
+      CodeUri: lambda
+      FunctionName: dala-lake-control-deploy-stack
+      Handler: deploy-stack.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: 600
+
+  DeployStackLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${DeployStackLambda}
+      RetentionInDays: 7
+
+  UpdateDynamoDBLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      AutoPublishAlias: latest
+      CodeUri: lambda
+      FunctionName: dala-lake-control-update-status
+      Handler: deploy-stack.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: 600
+
+  UpdateDynamoDBLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${UpdateDynamoDBLambda}
+      RetentionInDays: 7
+
+  StepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: StatesExecutionPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: [ !GetAtt [ DeployStackLambda, Arn ], !GetAtt [ UpdateDynamoDBLambda, Arn ] ]
+
+  StepFunction:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "StartAt": "DeployStackState",
+              "States": {
+                "DeployStackState": {
+                  "Type": "Task",
+                  "Resource": "${DeployStackLambdaArn}",
+                  "Next": "UpdateDynamoDBState"
+                },
+                "UpdateDynamoDBState": {
+                  "Type": "Task",
+                  "Resource": "${UpdateDynamoDBLambdaArn}",
+                  "End": true
+                }
+              }
+            }
+          - {DeployStackLambdaArn: !GetAtt [ DeployStackLambda, Arn ], UpdateDynamoDBLambdaArn: !GetAtt [ UpdateDynamoDBLambda, Arn ]}
+      RoleArn: !GetAtt [StepFunctionRole, Arn]
+      StateMachineName: data-lake-control-create-log-type

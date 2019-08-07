@@ -6,7 +6,7 @@ echo "** Start to deploy and build. **"
 
 echo "Build serverless function..."
 aws cloudformation package \
-  --template-file aws-sam.yaml \
+  --template-file aws-sam-delete.yaml \
   --output-template-file aws-sam-deploy.yaml \
   --s3-bucket ${s3_bucket} \
   --s3-prefix serverless-function \

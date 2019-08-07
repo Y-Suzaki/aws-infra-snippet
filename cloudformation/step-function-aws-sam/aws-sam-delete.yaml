@@ -29,9 +29,8 @@ Resources:
                 - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:*
             - Effect: Allow
               Action:
-                - dynamodb:Update*
-              Resource:
-                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/LogType
+                - s3:PutLifecycleConfiguration
+              Resource: "*"
             - Effect: Allow
               Action:
                 - cloudformation:*
@@ -40,38 +39,38 @@ Resources:
                 - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/data-lake-kinesis-*/*
                 - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/data-lake-kinesis-trigger-*/*
 
-  DeployStackLambda:
+  DeleteStackLambda:
     Type: AWS::Serverless::Function
     Properties:
       AutoPublishAlias: latest
       CodeUri: lambda
-      FunctionName: dala-lake-control-deploy-stack
+      FunctionName: dala-lake-control-delete-stack
       Handler: deploy-stack.handler
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.7
       Timeout: 600
 
-  DeployStackLambdaLogGroup:
+  DeleteStackLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${DeployStackLambda}
+      LogGroupName: !Sub /aws/lambda/${DeleteStackLambda}
       RetentionInDays: 7
 
-  UpdateDynamoDBLambda:
+  DeleteS3ObjectsLambda:
     Type: AWS::Serverless::Function
     Properties:
       AutoPublishAlias: latest
       CodeUri: lambda
-      FunctionName: dala-lake-control-update-status
-      Handler: deploy-stack.handler
+      FunctionName: dala-lake-control-delete-s3-objects
+      Handler: delete-all-objects.handler
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.7
       Timeout: 600
 
-  UpdateDynamoDBLambdaLogGroup:
+  DeleteS3ObjectsLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${UpdateDynamoDBLambda}
+      LogGroupName: !Sub /aws/lambda/${DeleteS3ObjectsLambda}
       RetentionInDays: 7
 
   StepFunctionRole:
@@ -94,7 +93,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: [ !GetAtt [ DeployStackLambda, Arn ], !GetAtt [ UpdateDynamoDBLambda, Arn ] ]
+                Resource: [ !GetAtt [ DeleteStackLambda, Arn ], !GetAtt [ DeleteS3ObjectsLambda, Arn ] ]
 
   StepFunction:
     Type: AWS::StepFunctions::StateMachine
@@ -103,47 +102,11 @@ Resources:
         !Sub
           - |-
             {
-              "StartAt": "DeployStackS3State",
+              "StartAt": "DeleteStackKinesisTriggerState",
               "States": {
-                "DeployStackS3State": {
+                "DeleteStackKinesisTriggerState": {
                   "Type": "Task",
-                  "Resource": "${DeployStackLambdaArn}",
-                  "InputPath": "$",
-                  "Parameters": {
-                    "uri.$": "$.uri",
-                    "stack_name": "s3-stack",
-                    "template_name": "s3-template.yml"
-                  },
-                  "OutputPath": "$",
-                  "Next": "DeployStackKinesisState",
-                  "Catch": [
-                    {
-                      "ErrorEquals": ["States.ALL"],
-                      "Next": "UpdateDynamoDBErrorState"
-                    }
-                  ]
-                },
-                "DeployStackKinesisState": {
-                  "Type": "Task",
-                  "Resource": "${DeployStackLambdaArn}",
-                  "InputPath": "$",
-                  "Parameters": {
-                    "uri.$": "$.uri",
-                    "stack_name": "kinesis-stack",
-                    "template_name": "kinesis-template.yml"
-                  },
-                  "OutputPath": "$",
-                  "Next": "DeployStackKinesisTriggerState",
-                  "Catch": [
-                    {
-                      "ErrorEquals": ["States.ALL"],
-                      "Next": "UpdateDynamoDBErrorState"
-                    }
-                  ]
-                },
-                "DeployStackKinesisTriggerState": {
-                  "Type": "Task",
-                  "Resource": "${DeployStackLambdaArn}",
+                  "Resource": "${DeleteStackLambdaArn}",
                   "InputPath": "$",
                   "Parameters": {
                     "uri.$": "$.uri",
@@ -151,39 +114,80 @@ Resources:
                     "template_name": "kinesis-trigger-template.yml"
                   },
                   "OutputPath": "$",
-                  "Next": "UpdateDynamoDBSuccessState",
+                  "Next": "DeleteStackKinesisState",
                   "Catch": [
                     {
                       "ErrorEquals": ["States.ALL"],
-                      "Next": "UpdateDynamoDBErrorState"
+                      "Next": "DeleteErrorState"
                     }
                   ]
                 },
-                "UpdateDynamoDBSuccessState": {
+                "DeleteStackKinesisState": {
                   "Type": "Task",
-                  "Resource": "${UpdateDynamoDBLambdaArn}",
+                  "Resource": "${DeleteStackLambdaArn}",
                   "InputPath": "$",
                   "Parameters": {
                     "uri.$": "$.uri",
-                    "status": "working"
+                    "stack_name": "kinesis-stack",
+                    "template_name": "kinesis-template.yml"
                   },
+                  "OutputPath": "$",
+                  "Next": "DeleteS3ObjectsState",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "DeleteErrorState"
+                    }
+                  ]
+                },
+                "DeleteS3ObjectsState": {
+                  "Type": "Task",
+                  "Resource": "${DeleteS3ObjectsLambdaArn}",
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "life_cycle_days": 1
+                  },
+                  "OutputPath": "$",
+                  "Next": "WaitForS3Empty",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "DeleteErrorState"
+                    }
+                  ]
+                },
+                "WaitForS3Empty": {
+                  "Type": "Wait",
+                  "Seconds": 10,
+                  "Next": "DeleteStackS3State"
+                },
+                "DeleteStackS3State": {
+                  "Type": "Task",
+                  "Resource": "${DeleteStackLambdaArn}",
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "stack_name": "s3-stack",
+                    "template_name": "s3-template.yml"
+                  },
+                  "OutputPath": "$",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "DeleteErrorState"
+                    }
+                  ],
                   "End": true
                 },
-                "UpdateDynamoDBErrorState": {
-                  "Type": "Task",
-                  "Resource": "${UpdateDynamoDBLambdaArn}",
-                  "InputPath": "$",
-                  "Parameters": {
-                    "uri.$": "$.uri",
-                    "status": "error"
-                  },
-                  "End": true
+                "DeleteErrorState": {
+                  "Type": "Fail"
                 }
               }
             }
-          - {DeployStackLambdaArn: !GetAtt [ DeployStackLambda, Arn ], UpdateDynamoDBLambdaArn: !GetAtt [ UpdateDynamoDBLambda, Arn ]}
+          - {DeleteStackLambdaArn: !GetAtt [ DeleteStackLambda, Arn ], DeleteS3ObjectsLambdaArn: !GetAtt [ DeleteS3ObjectsLambda, Arn ]}
       RoleArn: !GetAtt [StepFunctionRole, Arn]
-      StateMachineName: data-lake-control-create-log-type
+      StateMachineName: data-lake-control-delete-log-type
 Outputs:
   StepFunction:
     Description: StepFunction

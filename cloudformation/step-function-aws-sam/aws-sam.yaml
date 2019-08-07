@@ -27,6 +27,18 @@ Resources:
                 - logs:PutLogEvents
               Resource:
                 - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:*
+            - Effect: Allow
+              Action:
+                - dynamodb:Update*
+              Resource:
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/LogType
+            - Effect: Allow
+              Action:
+                - cloudformation:*
+              Resource:
+                - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/data-lake-s3-*/*
+                - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/data-lake-kinesis-*/*
+                - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/data-lake-kinesis-trigger-*/*
 
   DeployStackLambda:
     Type: AWS::Serverless::Function
@@ -91,16 +103,80 @@ Resources:
         !Sub
           - |-
             {
-              "StartAt": "DeployStackState",
+              "StartAt": "DeployStackS3State",
               "States": {
-                "DeployStackState": {
+                "DeployStackS3State": {
                   "Type": "Task",
                   "Resource": "${DeployStackLambdaArn}",
-                  "Next": "UpdateDynamoDBState"
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "stack_name": "s3-stack",
+                    "template_name": "s3-template.yml"
+                  },
+                  "OutputPath": "$",
+                  "Next": "DeployStackKinesisState",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "UpdateDynamoDBErrorState"
+                    }
+                  ]
                 },
-                "UpdateDynamoDBState": {
+                "DeployStackKinesisState": {
+                  "Type": "Task",
+                  "Resource": "${DeployStackLambdaArn}",
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "stack_name": "kinesis-stack",
+                    "template_name": "kinesis-template.yml"
+                  },
+                  "OutputPath": "$",
+                  "Next": "DeployStackKinesisTriggerState",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "UpdateDynamoDBErrorState"
+                    }
+                  ]
+                },
+                "DeployStackKinesisTriggerState": {
+                  "Type": "Task",
+                  "Resource": "${DeployStackLambdaArn}",
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "stack_name": "kinesis-trigger-stack",
+                    "template_name": "kinesis-trigger-template.yml"
+                  },
+                  "OutputPath": "$",
+                  "Next": "UpdateDynamoDBSuccessState",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "UpdateDynamoDBErrorState"
+                    }
+                  ]
+                },
+                "UpdateDynamoDBSuccessState": {
                   "Type": "Task",
                   "Resource": "${UpdateDynamoDBLambdaArn}",
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "status": "working"
+                  },
+                  "End": true
+                },
+                "UpdateDynamoDBErrorState": {
+                  "Type": "Task",
+                  "Resource": "${UpdateDynamoDBLambdaArn}",
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "status": "error"
+                  },
                   "End": true
                 }
               }

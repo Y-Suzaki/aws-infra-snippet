@@ -1,2 +1,7 @@
 def handler(event, context):
-    return "Hello World."
+    print(event)
+
+    response = {"version": "0-0-1"}
+    response.update(event)
+
+    return response

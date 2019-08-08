@@ -19,8 +19,6 @@ def handler(event, context):
     latest_version = get_latest_version(aliases)
     response = {"version": latest_version}
     response.update(event)
-    print(response)
-
     return response
 
 

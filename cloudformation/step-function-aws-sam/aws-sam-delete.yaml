@@ -102,8 +102,21 @@ Resources:
         !Sub
           - |-
             {
-              "StartAt": "DeleteStackKinesisTriggerState",
+              "StartAt": "GetLatestVersionState",
               "States": {
+                "GetLatestVersionState": {
+                  "Type": "Task",
+                  "Resource": "${GetLatestVersionLambdaArn}",
+                  "InputPath": "$",
+                  "OutputPath": "$",
+                  "Next": "DeleteStackKinesisTriggerState",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "DeleteErrorState"
+                    }
+                  ]
+                },
                 "DeleteStackKinesisTriggerState": {
                   "Type": "Task",
                   "Resource": "${DeleteStackLambdaArn}",
@@ -185,7 +198,11 @@ Resources:
                 }
               }
             }
-          - {DeleteStackLambdaArn: !GetAtt [ DeleteStackLambda, Arn ], DeleteS3ObjectsLambdaArn: !GetAtt [ DeleteS3ObjectsLambda, Arn ]}
+          - {
+              DeleteStackLambdaArn: !GetAtt [ DeleteStackLambda, Arn ],
+              DeleteS3ObjectsLambdaArn: !GetAtt [ DeleteS3ObjectsLambda, Arn ],
+              GetLatestVersionLambdaArn: !ImportValue data-lake-control-lambda-arn-get-latest-version
+            }
       RoleArn: !GetAtt [StepFunctionRole, Arn]
       StateMachineName: data-lake-control-delete-log-type
 Outputs:

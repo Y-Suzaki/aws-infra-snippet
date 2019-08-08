@@ -74,6 +74,23 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${UpdateDynamoDBLambda}
       RetentionInDays: 7
 
+  GetLatestVersionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      AutoPublishAlias: latest
+      CodeUri: lambda
+      FunctionName: dala-lake-control-get-latest-lambda
+      Handler: get_latest_version.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: 600
+
+  GetLatestVersionLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${GetLatestVersionLambda}
+      RetentionInDays: 7
+
   StepFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -103,8 +120,25 @@ Resources:
         !Sub
           - |-
             {
-              "StartAt": "DeployStackS3State",
+              "StartAt": "GetLatestVersionState",
               "States": {
+                "GetLatestVersionState": {
+                  "Type": "Task",
+                  "Resource": "${GetLatestVersionLambdaArn}",
+                  "InputPath": "$",
+                  "Parameters": {
+                    "uri.$": "$.uri",
+                    "lambda_name": "kinesis-test-read"
+                  },
+                  "OutputPath": "$",
+                  "Next": "DeployStackS3State",
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "UpdateDynamoDBErrorState"
+                    }
+                  ]
+                },
                 "DeployStackS3State": {
                   "Type": "Task",
                   "Resource": "${DeployStackLambdaArn}",
@@ -181,10 +215,19 @@ Resources:
                 }
               }
             }
-          - {DeployStackLambdaArn: !GetAtt [ DeployStackLambda, Arn ], UpdateDynamoDBLambdaArn: !GetAtt [ UpdateDynamoDBLambda, Arn ]}
+          - {
+              DeployStackLambdaArn: !GetAtt [ DeployStackLambda, Arn ],
+              UpdateDynamoDBLambdaArn: !GetAtt [ UpdateDynamoDBLambda, Arn ],
+              GetLatestVersionLambdaArn: !GetAtt [ GetLatestVersionLambda, Arn ]
+            }
       RoleArn: !GetAtt [StepFunctionRole, Arn]
       StateMachineName: data-lake-control-create-log-type
 Outputs:
   StepFunction:
     Description: StepFunction
     Value: !Ref StepFunction
+  GetLatestVersionLambda:
+    Description: GetLatestVersionLambda
+    Value: !GetAtt [ GetLatestVersionLambda, Arn ]
+    Export:
+      Name: data-lake-control-lambda-arn-get-latest-version

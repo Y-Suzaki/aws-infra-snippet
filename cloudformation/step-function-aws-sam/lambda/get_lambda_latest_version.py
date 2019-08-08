@@ -5,10 +5,10 @@ from distutils.version import LooseVersion
 client = boto3.client('lambda')
 
 
-def get_latest_version(versions):
+def get_latest_version(aliases):
+    versions = list(map(lambda x: x['Name'], aliases))
     sorted_version = sorted(versions, key=LooseVersion, reverse=True)
-    print(sorted_version)
-
+    return sorted_version[0]
 
 
 def handler(event, context):
@@ -16,11 +16,10 @@ def handler(event, context):
     if not aliases:
         raise ValueError('Alias dose not exists on the lambda function.')
 
-    versions = list(map(lambda x: x['Name'], aliases))
-    latest_version = get_latest_version(versions)
-
+    latest_version = get_latest_version(aliases)
     response = {"version": latest_version}
     response.update(event)
+    print(response)
 
     return response
 

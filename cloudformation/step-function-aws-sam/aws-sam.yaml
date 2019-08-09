@@ -34,6 +34,11 @@ Resources:
                 - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/LogType
             - Effect: Allow
               Action:
+                - lambda:ListAliases
+              Resource:
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+            - Effect: Allow
+              Action:
                 - cloudformation:*
               Resource:
                 - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/data-lake-s3-*/*
@@ -63,7 +68,7 @@ Resources:
       AutoPublishAlias: latest
       CodeUri: lambda
       FunctionName: dala-lake-control-update-status
-      Handler: deploy-stack.handler
+      Handler: update_dynamodb.handler
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.7
       Timeout: 600
@@ -111,7 +116,11 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: [ !GetAtt [ DeployStackLambda, Arn ], !GetAtt [ UpdateDynamoDBLambda, Arn ] ]
+                Resource: [
+                  !GetAtt [ DeployStackLambda, Arn ],
+                  !GetAtt [ UpdateDynamoDBLambda, Arn ],
+                  !GetAtt [ GetLatestVersionLambda, Arn ]
+                ]
 
   StepFunction:
     Type: AWS::StepFunctions::StateMachine

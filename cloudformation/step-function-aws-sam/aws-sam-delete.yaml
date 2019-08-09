@@ -93,7 +93,11 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: [ !GetAtt [ DeleteStackLambda, Arn ], !GetAtt [ DeleteS3ObjectsLambda, Arn ] ]
+                Resource: [
+                  !GetAtt [ DeleteStackLambda, Arn ],
+                  !GetAtt [ DeleteS3ObjectsLambda, Arn ],
+                  !ImportValue data-lake-control-lambda-arn-get-latest-version
+                ]
 
   StepFunction:
     Type: AWS::StepFunctions::StateMachine

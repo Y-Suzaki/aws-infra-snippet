@@ -1,7 +1,11 @@
 # Setup
 ## Account Bにて
 * IAM Roleの作成
-    * lambda-execute-roleの作成
+    * lambda-execute-roleの作成  
+    このRole自体にもs3の権限を付与する必要は当然ある。以下のエラーを見たらRoleの権限を疑う。
+    ```
+    [ERROR] ClientError: An error occurred (403) when calling the HeadObject operation: Forbidden
+    ```
 * Lambda Functionの作成
     * 3-event-cross-account
     * arn:aws:lambda:us-west-2:601373194128:function:3-event-cross-account

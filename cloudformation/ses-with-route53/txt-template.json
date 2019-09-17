@@ -1,0 +1,17 @@
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "{{RECORD_NAME}}",
+        "Type": "TXT",
+        "TTL": 1800,
+        "ResourceRecords": [
+          {
+            "Value": "\"{{RECORD_VALUE}}\""
+          }
+        ]
+      }
+    }
+  ]
+}

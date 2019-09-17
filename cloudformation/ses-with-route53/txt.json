@@ -1,0 +1,17 @@
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "_amazonses.ys-dev-web.tk",
+        "Type": "TXT",
+        "TTL": 1800,
+        "ResourceRecords": [
+          {
+            "Value": "\"5He1ZXYj8fE6ZvwrE6fWstSugSSj213dzgts7ak51FE=\""
+          }
+        ]
+      }
+    }
+  ]
+}

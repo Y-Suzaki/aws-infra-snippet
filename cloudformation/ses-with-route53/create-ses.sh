@@ -1,24 +1,42 @@
 #!/usr/bin/env bash
 
-domain="ys-dev-web"
+DOMAIN="ys-dev-web.tk"
+ZONE_ID="Z1FON0KVY2AAH8"
 
-echo "start"
+echo "*************************************"
+echo "Create SES domain."
+echo "*************************************"
+aws ses verify-domain-identity \
+  --domain ${DOMAIN} \
+  --region us-west-2
 
-#aws ses verify-domain-identity \
-#  --domain ${domain} \
-#  --region us-west-2
-
-#{
-#    "VerificationToken": "xxxxxxxxxxxxxxxxxx"
-#}
-
-aws ses get-identity-verification-attributes \
-  --identities ${domain} \
-  --query 'VerificationAttributes.*.VerificationStatus' \
+TOKEN=`aws ses get-identity-verification-attributes \
+  --identities ${DOMAIN} \
+  --query 'VerificationAttributes.*.VerificationToken' \
   --region us-west-2 \
-  --output text
+  --output text`
 
-aws ses get-identity-verification-attributes \
-  --identities ${domain} \
-  --region us-west-2 \
-  --output json
+
+echo "*************************************"
+echo "Create TXT record on Route53."
+echo "*************************************"
+RECORD_NAME="_amazonses.${DOMAIN}"
+RECORD_VALUE=${TOKEN}
+
+cp txt-template.json txt.json
+sed -i -e "s/{{RECORD_NAME}}/${RECORD_NAME}/g" txt.json
+sed -i -e "s/{{RECORD_VALUE}}/${RECORD_VALUE}/g" txt.json
+
+aws route53 change-resource-record-sets \
+  --hosted-zone-id ${ZONE_ID} \
+  --change-batch file://txt.json \
+  --region us-west-2
+
+aws ses wait identity-exists \
+  --identities ${DOMAIN} \
+  --region us-west-2
+
+
+echo "*************************************"
+echo "Create CNAME record on Route53."
+echo "*************************************"

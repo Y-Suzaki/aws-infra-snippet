@@ -36,7 +36,7 @@ Resources:
       InstanceType: !Ref InstanceType
       KeyName: !Join [ "-", [ "kaonashi", "ssh", "key", Ref: "Env" ] ]
       # Amazon Linux 2 AMI (HVM), SSD Volume Type
-      ImageId: ami-03b4aa59bf41f9ed4
+      ImageId: ami-0c5204531f799e0c6
       IamInstanceProfile: !Ref StepServerInstanceProfile
       BlockDeviceMappings:
         - DeviceName: /dev/xvda

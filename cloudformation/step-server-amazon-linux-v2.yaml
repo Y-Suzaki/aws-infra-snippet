@@ -38,6 +38,12 @@ Resources:
       # Amazon Linux 2 AMI (HVM), SSD Volume Type
       ImageId: ami-03b4aa59bf41f9ed4
       IamInstanceProfile: !Ref StepServerInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 15
+            VolumeType: gp2
+            DeleteOnTermination: true
       NetworkInterfaces:
       - AssociatePublicIpAddress: true
         DeviceIndex: 0

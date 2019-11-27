@@ -3,6 +3,9 @@ Parameters:
   Env:
     Type: String
     Default: dev
+  InstanceType:
+    Type: String
+    Default: t2.micro
 
 Resources:
   StepServerRole:
@@ -30,10 +33,10 @@ Resources:
   StepServer:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t2.micro
+      InstanceType: !Ref InstanceType
       KeyName: !Join [ "-", [ "kaonashi", "ssh", "key", Ref: "Env" ] ]
       # Amazon Linux 2 AMI (HVM), SSD Volume Type
-      ImageId: ami-0cb72367e98845d43
+      ImageId: ami-03b4aa59bf41f9ed4
       IamInstanceProfile: !Ref StepServerInstanceProfile
       NetworkInterfaces:
       - AssociatePublicIpAddress: true
@@ -45,12 +48,9 @@ Resources:
         #!/bin/bash
         yum update -y
         amazon-linux-extras install epel -y
-        yum install python36 -y
-        yum install mysql mysql-devel -y
-        yum install gcc -y
+        yum install python37 -y
         yum install git -y
-        yum install collectd -y
-        ln -s /usr/bin/pip-3.6 /usr/bin/pip3
+        ln -s /usr/bin/pip-3.7 /usr/bin/pip3
       Tags:
       - Key: Name
         Value: !Join [ "-", [ "kaonashi", "step", "server", "Ref":"Env"  ] ]

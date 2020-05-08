@@ -13,6 +13,12 @@ Parameters:
 Conditions:
   EC2: !Equals [ !Ref LaunchType, "EC2" ]
 Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: "*.ys-dev-web.tk"
+      ValidationMethod: DNS
+
   SecurityGroupALB:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
@@ -20,9 +26,10 @@ Resources:
       SecurityGroupIngress:
       - CidrIp: "0.0.0.0/0"
         IpProtocol: "TCP"
-        FromPort: 80
-        ToPort: 80
+        FromPort: 443
+        ToPort: 443
       VpcId: { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "backend", "vpc" , Ref: "Env" ] ] }
+
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -31,15 +38,30 @@ Resources:
         - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "public", "subnet" ,"b" , Ref: "Env" ] ] }
       SecurityGroups:
       - !Ref SecurityGroupALB
+
+  Route53Record:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: ys-dev-web.tk.
+      RecordSets:
+        - Name: api.ys-dev-web.tk
+          Type: A
+          AliasTarget:
+            HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+            DNSName: !GetAtt LoadBalancer.DNSName
+
   LoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
-      Port: 80
-      Protocol: HTTP
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref Certificate
       DefaultActions:
       - Type: forward
         TargetGroupArn: !Ref TargetGroupBlue
+
   TargetGroupBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     DependsOn: LoadBalancer
@@ -58,6 +80,7 @@ Resources:
       TargetGroupAttributes:
       - Key: deregistration_delay.timeout_seconds
         Value: 30
+
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:

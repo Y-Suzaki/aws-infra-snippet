@@ -6,6 +6,9 @@ Parameters:
   DeployEnv:
     Type: String
     Default: dev
+  AppVersion:
+    Type: String
+    Default: 0-1-0
 
 Resources:
   SqsQueue:
@@ -58,12 +61,20 @@ Resources:
       Environment:
         Variables:
           RETRY_LIMIT: 3
-      Events:
-        SQSEvent:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt SqsQueue.Arn
-            BatchSize: 1
+#      Events:
+#        SQSEvent:
+#          Type: SQS
+#          Properties:
+#            Queue: !GetAtt SqsQueue.Arn
+#            BatchSize: 1
+
+  EventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt SqsQueue.Arn
+      FunctionName: !Ref LambdaFunction
 
   LambdaLogGroup:
     Type: AWS::Logs::LogGroup

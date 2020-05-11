@@ -11,7 +11,7 @@ Parameters:
     Default: 0-1-0
 
 Resources:
-  # pre-infraで作成
+  # pre-infra
   SqsQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -20,7 +20,7 @@ Resources:
       QueueName: !Sub lambda-event-output-${DeployEnv}.fifo
       VisibilityTimeout: 30
 
-  # deployで作成
+  # deploy
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
@@ -51,7 +51,7 @@ Resources:
                 - sqs:ReceiveMessage
               Resource: !GetAtt SqsQueue.Arn
 
-  # deployで作成
+  # deploy
   LambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -79,14 +79,14 @@ Resources:
 #      EventSourceArn: !GetAtt SqsQueue.Arn
 #      FunctionName: !Ref LambdaFunction
 
-  # deployで作成
+  # deploy
   LambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${LambdaFunction}
       RetentionInDays: 7
 
-  # deployで作成
+  # deploy
   SqsQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:

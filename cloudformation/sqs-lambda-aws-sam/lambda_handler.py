@@ -36,8 +36,18 @@ class CommunicationError(Exception):
 @retry(CommunicationError, tries=3, delay=1, backoff=2)
 def send_to_datalake(path: str, upload_data: dict):
     domain = os.environ['DATALAKE_DOMAIN']
+    header = {'content-type': "Application/json"}
+
     try:
-        header = {'content-type': "Application/json"}
+        response = requests.post(url="https://xxx", headers=header, data=json.dumps(upload_data))
+        if response.status_code != 200:
+            if 400 <= response.status_code <= 499:
+                pass
+            elif 500 <= response.status_code <= 599:
+                raise CommunicationError()
+            else:
+                raise Exception('Unexpected error.')
+        return response.json()
     except ConnectTimeout as e:
         raise CommunicationError(e)
 
@@ -61,11 +71,3 @@ def handler(event, context):
     except Exception as e:
         # logger.error()
         print('Error')
-
-
-try:
-    os.environ['RETRY_LIMIT'] = '1'
-    handler(test_event, None)
-except Exception as e:
-    print(type(e))
-    print(e)

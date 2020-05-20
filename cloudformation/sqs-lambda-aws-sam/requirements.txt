@@ -1,2 +1,3 @@
 requests
 retry
+boto3

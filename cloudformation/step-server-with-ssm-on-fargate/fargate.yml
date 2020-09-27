@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ys-dev-web-${Env}
+    
+  ECSSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub ys-dev-web-ecs-task-sg-${Env}
+      VpcId: 
+        Fn::ImportValue:
+          !Sub kaonashi-backend-vpc-${Env}
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      # CPUとMemoryの組み合わせは決まっているので注意
+      Cpu: 256
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      Family: step-server
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities: 
+       - FARGATE  
+      ContainerDefinitions:
+        - Name: step-server
+          Image: 838023436798.dkr.ecr.us-west-2.amazonaws.com/step-server:latest
+          MemoryReservation: 256
+          Secrets:
+            - Name: SSM_ACTIVATION_CODE
+              ValueFrom: activation-code
+            - Name: SSM_ACTIVATION_ID
+              ValueFrom: activation-id
+          # PortMappings:
+          #   - HostPort: 80
+          #     Protocol: tcp
+          #     ContainerPort: 80
+
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          # 本来はNATGatewayを構築し、Private Subentにおくべき
+          Subnets:
+            - Fn::ImportValue:
+               !Sub kaonashi-public-subnet-a-${Env}
+            - Fn::ImportValue:
+               !Sub kaonashi-public-subnet-b-${Env}
+      ServiceName: !Sub ys-dev-web-service-${Env}
+      TaskDefinition: !Ref ECSTaskDefinition
+
+
+
+

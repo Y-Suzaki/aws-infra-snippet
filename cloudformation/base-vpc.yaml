@@ -4,9 +4,18 @@ Parameters:
   Env:
     Type: String
     Default: dev
+  EnableNatGatewayA:
+    Default: false
+    Type: String
+    AllowedValues:
+      - true
+      - false
+
+Conditions:
+  IsCreateNATGatewayA: !Equals [ !Ref EnableNatGatewayA, true ]
 
 Resources:
-  # VPC & Subnet
+  # VPC
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -17,6 +26,83 @@ Resources:
       Tags:
       - Key: Name
         Value: !Join [ "-", [ "kaonashi", "backend", "vpc", "Ref":"Env"  ] ]
+
+  # Subnet
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: us-west-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "kaonashi", "public", "subnet", "a", "Ref":"Env"  ] ]
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: us-west-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "kaonashi", "public", "subnet", "b", "Ref":"Env"  ] ]
+  ApplicationSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: us-west-2a
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "kaonashi", "application", "subnet", "a", "Ref":"Env"  ] ]
+  ApplicationSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: us-west-2b
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "kaonashi", "application", "subnet", "a", "Ref":"Env"  ] ]
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.20.0/24
+      AvailabilityZone: us-west-2a
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "kaonashi", "private", "subnet", "a", "Ref":"Env"  ] ]
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.21.0/24
+      AvailabilityZone: us-west-2b
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "kaonashi", "private", "subnet", "a", "Ref":"Env"  ] ]
+
+  # NAT Gateway
+  NATGatewayAEIP:
+    Type: AWS::EC2::EIP
+    Condition: IsCreateNATGatewayA
+    Properties:
+      Domain: vpc
+
+  NATGatewayA:
+    Type: AWS::EC2::NatGateway
+    Condition: IsCreateNATGatewayA
+    Properties:
+      AllocationId: !GetAtt NATGatewayAEIP.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub ys-dev-web-natgateway-a-${Env}
+
+  # Route Table
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -48,93 +134,46 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
-  PublicSubnetA:
-    Type: AWS::EC2::Subnet
+  PrivateRouteNATGatewayA:
+    Type: "AWS::EC2::Route"
+    Condition: IsCreateNATGatewayA
     Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.0.0/24
-      AvailabilityZone: us-west-2a
-      MapPublicIpOnLaunch: true
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ "kaonashi", "public", "subnet", "a", "Ref":"Env"  ] ]
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NATGatewayA
+
+  # SubnetRouteTableAssociation
   PublicSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnetA
       RouteTableId: !Ref PublicRouteTable
-  PublicSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC 
-      CidrBlock: 10.0.1.0/24
-      AvailabilityZone: us-west-2b
-      MapPublicIpOnLaunch: true
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ "kaonashi", "public", "subnet", "b", "Ref":"Env"  ] ]
   PublicSubnetBRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnetB
       RouteTableId: !Ref PublicRouteTable
-  ApplicationSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.10.0/24
-      AvailabilityZone: us-west-2a
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ "kaonashi", "application", "subnet", "a", "Ref":"Env"  ] ]
   ApplicationSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref ApplicationSubnetA
-      RouteTableId: !Ref PublicRouteTable
-  ApplicationSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.11.0/24
-      AvailabilityZone: us-west-2b
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ "kaonashi", "application", "subnet", "a", "Ref":"Env"  ] ]
+      RouteTableId: !Ref PrivateRouteTable
   ApplicationSubnetBRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref ApplicationSubnetB
-      RouteTableId: !Ref PublicRouteTable
-  PrivateSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.20.0/24
-      AvailabilityZone: us-west-2a
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ "kaonashi", "private", "subnet", "a", "Ref":"Env"  ] ]
+      RouteTableId: !Ref PrivateRouteTable
   PrivateSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnetA
       RouteTableId: !Ref PrivateRouteTable
-  PrivateSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: 10.0.21.0/24
-      AvailabilityZone: us-west-2b
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ "kaonashi", "private", "subnet", "a", "Ref":"Env"  ] ]
   PrivateSubnetBRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnetB
       RouteTableId: !Ref PrivateRouteTable
-  
+
   # Security Group
   StepServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup

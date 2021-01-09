@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  Bucket:
+    Type: String
+    Default: ys-dev-web-glue-crawler
+  TargetPath:
+    Type: String
+    Default: applog
+
+Resources:
+  CrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: crawler-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource: arn:aws:s3:::ys-dev-web-glue-crawler/*
+
+  CrawlerDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: applog
+        Description: Usage logs for SmartPhone app.
+
+  Crawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: ys-dev-web-crawler
+      Role: !GetAtt CrawlerRole.Arn
+      DatabaseName: !Ref CrawlerDatabase
+      TablePrefix: ys_dev_web_
+      Targets:
+        S3Targets:
+          - Path: !Sub ${Bucket}/${TargetPath}/
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG
+      Schedule:
+        ScheduleExpression: "cron(0/5 * * * ? *)"

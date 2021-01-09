@@ -1,0 +1,12 @@
+{
+  "loginId": "user-1",
+  "accessTime": "2021-01-01T00:00:00Z",
+  "appInfo": {
+    "version": "1.0.0",
+    "os": "android 9.0"
+  },
+  "search": {
+    "category": "restaurant",
+    "word": "beef"
+  }
+}

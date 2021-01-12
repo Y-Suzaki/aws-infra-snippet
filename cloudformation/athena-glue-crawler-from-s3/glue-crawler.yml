@@ -53,6 +53,7 @@ Resources:
           - Path: !Sub ${Bucket}/${TargetPath}/
       SchemaChangePolicy:
         UpdateBehavior: UPDATE_IN_DATABASE
-        DeleteBehavior: LOG
+        DeleteBehavior: DEPRECATE_IN_DATABASE
+      Configuration: "{\"Version\":1.0,\"CrawlerOutput\":{\"Partitions\":{\"AddOrUpdateBehavior\":\"InheritFromTable\"},\"Tables\":{\"AddOrUpdateBehavior\":\"MergeNewColumns\"}}}"
       Schedule:
         ScheduleExpression: "cron(0/5 * * * ? *)"

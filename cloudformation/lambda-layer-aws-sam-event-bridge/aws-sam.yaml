@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  EventApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      TracingEnabled: true
+
+  EventPublishFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: "lambda/"
+      Handler: lambda-publish.handler
+      Runtime: python3.8
+      Tracing: Active
+      Layers:
+        - !ImportValue ys-dev-web-lambda-layer-xray-sdk
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: default
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /
+            RestApiId:
+              Ref: EventApi
+
+  EventPublishFuncLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${EventPublishFunc}
+
+  EventConsumeFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: "lambda/"
+      Handler: lambda-comsume.handler
+      Runtime: python3.8
+      Tracing: Active
+      Layers:
+        - !ImportValue ys-dev-web-lambda-layer-xray-sdk
+      Events:
+        Invoked:
+          Type: EventBridgeRule
+          Properties:
+            Input: '{"Key": "Value"}'
+            Pattern:
+              source:
+                - "ys.dev.web.x-ray-test"
+
+  EventConsumeFuncLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${EventConsumeFunc}
+
+Outputs:
+  EventAPIEndPointURL:
+    Value: !Sub https://${EventApi}.execute-api.${AWS::Region}.amazonaws.com/dev

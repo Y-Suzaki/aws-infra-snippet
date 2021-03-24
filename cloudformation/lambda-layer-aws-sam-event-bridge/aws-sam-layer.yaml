@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: ys-dev-web-lambda-xra-sdk
+      Description: Lambda function of X-Ray SDk.
+      ContentUri: ./lambda-layer.zip
+      CompatibleRuntimes:
+        - python3.8
+      LicenseInfo: 'Available under the MIT-0 license.'
+      RetentionPolicy: Delete
+Outputs:
+  SharedLayer:
+    Value: !Ref SharedLayer
+    Export:
+      Name: ys-dev-web-lambda-layer-xray-sdk

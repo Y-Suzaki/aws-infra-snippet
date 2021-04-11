@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Aurora Serverless(MySQL) create
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+  DBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: "RDS DB subnet group"
+      SubnetIds:
+        - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "private", "subnet" ,"a" , Ref: "Env" ] ] }
+        - { "Fn::ImportValue": !Join [ "-", [ "kaonashi", "private", "subnet" ,"b" , Ref: "Env" ] ] }
+
+  DBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: Parameter group for aurora mysql5.6
+      Family: aurora5.6
+      Parameters:
+        character_set_client: utf8mb4
+        character_set_connection: utf8mb4
+        character_set_database: utf8mb4
+        character_set_results: utf8mb4
+        character_set_server: utf8mb4
+        time_zone: Asia/Tokyo
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Sub "kaonashi-backend-vpc-${Env}"
+      GroupDescription: Allow MySQL (TCP3306)
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+      Tags:
+        - Key: Name
+          Value: !Sub ys-dev-web-rds-aurora-serverless-${Env}
+
+  SecretAurora:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "admin"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+
+  RdsDbCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      BackupRetentionPeriod: 7
+      DBClusterIdentifier: !Sub ys-dev-web-rds-aurora-serverless-${Env}
+      DBClusterParameterGroupName: !Ref DBClusterParameterGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DeletionProtection: false
+      Engine: aurora
+      EngineMode: serverless
+      # aws rds describe-db-engine-versions --engine aurora --query "DBEngineVersions[].EngineVersion"
+      EngineVersion: 5.6.10a
+      MasterUsername: !Join ['', ['{{resolve:secretsmanager:', !Ref SecretAurora, ':SecretString:username}}' ]]
+      MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref SecretAurora, ':SecretString:password}}' ]]
+      Port: 3306
+      PreferredBackupWindow: 15:25-15:55
+      PreferredMaintenanceWindow: Tue:16:05-Tue:16:35
+      ScalingConfiguration:
+        AutoPause: true
+        MinCapacity: 1
+        MaxCapacity: 1
+        SecondsUntilAutoPause: 1800
+      StorageEncrypted: true
+      VpcSecurityGroupIds:
+        - !Ref RdsSecurityGroup
+
+Outputs:
+  RdsDbClusterEndpoint:
+    Value: !GetAtt RdsDbCluster.Endpoint.Address

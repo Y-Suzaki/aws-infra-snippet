@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless application.
+
+Parameters:
+  DeployEnv:
+    Type: String
+    Default: dev
+  SecretArn:
+    Type: String
+  DBClusterArn:
+    Type: String
+
+Resources:
+  # deploy
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: lambda_logs_policy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: logs:CreateLogGroup
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:*
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: arn:aws:secretsmanager:*:*:secret:rds-db-credentials/*
+            - Effect: Allow
+              Action:
+                - rds-data:BatchExecuteStatement
+                - rds-data:BeginTransaction
+                - rds-data:CommitTransaction
+                - rds-data:ExecuteStatement
+                - rds-data:RollbackTransaction
+              Resource: !Sub arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:ys-dev-web-rds-aurora-serverless-${DeployEnv}
+
+  # deploy
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda.zip
+      FunctionName: !Sub ys-dev-web-rds-aurora-serverless-${DeployEnv}
+      Handler: lambda_handler.handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Timeout: 20
+      Environment:
+        Variables:
+          SECRET_ARN: !Ref SecretArn
+          DB_CLUSTER_ARN: !Ref DBClusterArn
+
+  # deploy
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaFunction}
+      RetentionInDays: 7

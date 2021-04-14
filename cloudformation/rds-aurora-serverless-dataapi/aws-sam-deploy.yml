@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless application.
+Parameters:
+  DeployEnv:
+    Type: String
+    Default: dev
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: lambda_logs_policy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action: logs:CreateLogGroup
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:*
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://cf-templates-461spye58s2i-us-west-2/serverless-function/4f3d1a57b5c22fa914977268b9d3c5c8
+      FunctionName:
+        Fn::Sub: ys-dev-web-rds-aurora-serverless-${DeployEnv}
+      Handler: lambda_handler.handler
+      Role:
+        Fn::GetAtt:
+        - LambdaRole
+        - Arn
+      Runtime: python3.8
+      Timeout: 20
+      Environment:
+        Variables:
+          RETRY_LIMIT: 3
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${LambdaFunction}
+      RetentionInDays: 7
